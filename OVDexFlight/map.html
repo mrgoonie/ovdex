@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>OVDEX FLIGHT MAP</title>
+    
+    <style>
+      html, body, #map-canvas {
+        height: 100%;
+        margin: 0px;
+        padding: 0px;
+      }
+    </style>
+
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp&sensor=false&libraries=weather,geometry"></script>
+    <script type="text/javascript" src="markerclusterer.js"></script>
+    <script type="text/javascript" src="jquery-1.7.2.js"></script>
+
+    <style type="text/css">
+    	#dest_marker, #origin_marker {
+    		position: absolute;
+			z-index: 1000;
+			border: 2px solid #00b2d6;
+			border-radius: 10px;
+			font-family: Helvetica, Arial;
+			font-size: 13px;
+			color: #00b2d6;
+			text-align: center;
+			background-color: #fff;
+			top: 20px;
+			left: 20px;
+			padding: 3px 10px;
+			display: none;
+    	}
+    </style>
+
+    <script>
+
+    var mapOptions;
+    var map;
+    var cloudLayer;
+    var tempatureLayer;
+    var boundariesLayer;
+    var saaLayer;
+    
+    //
+    
+    var artccLayer;
+    
+    var flightDataArr;
+
+    var markerCluster;
+    var markerClusterOptions;
+    var posArr;
+    var markerIdArr;
+    var markerArr;
+    var totalFlight;
+
+    var airportPosArr;
+    var airportMarkerArr;
+    
+    var flightPlanCoordinates;
+    var flightPath;
+    
+    var currentActiveMarkerId;
+    var prevIconURL;
+    var prevClickedMarker;
+    
+    var isSearching = false;
+    var filterMarkerArr = [];
+    var filterDataArr = [];
+
+    //
+
+    var destPos;
+    var originPos;
+
+    // DRAW SUA...
+
+    var EarthRadiusMeters = 6378137.0; // meters
+    var bounds;
+    var suaShapeArr;
+    var suaDataArr;
+
+    //
+
+    var regionNameArr = ["africa", "north_america", "caribbean", "south_america", "north_atlantic", "europe", "middle_east_asia", "pacific"];
+	var regionPosArr = [new google.maps.LatLng(15.58950043, 32.55319977),
+						new google.maps.LatLng(35.39310074, -97.60070038),
+						new google.maps.LatLng(18.43939972, -66.00180054),
+						new google.maps.LatLng(-12.02190018, -77.11430359),
+						new google.maps.LatLng(51.47060013, -0.461941004),
+						new google.maps.LatLng(47.46469879, 8.54916954),
+						new google.maps.LatLng(19.08869934, 72.86789703),
+						new google.maps.LatLng(14.50860024, 121.0199966)];
+
+
+	function initialize() {
+		markerArr = [];
+		posArr = [];
+
+		airportPosArr = [];
+		airportMarkerArr = [];
+
+		var newPosArr = [];
+        
+        centerPoint = new google.maps.LatLng(37.09024,-95.71289);
+
+		mapOptions = {
+			zoom: 4,
+			center: centerPoint,
+			mapTypeId: google.maps.MapTypeId.HYBRID,
+			disableDefaultUI: true
+		};
+
+		map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+		
+        var opt = { minZoom: 2, maxZoom: 12 };
+        map.setOptions(opt);
+        
+        markerClusterOptions = {
+            gridSize: 50,
+            //maxZoom: 15,
+            ignoreHidden: true,
+            minimumClusterSize: 6,
+            styles: [{
+                     url: 'group_plane_icon.png',
+                     width: 48,
+                     height: 32,
+                     textColor: '#ffffff',
+                     textSize: 10
+                     }, {
+                     url: 'group_plane_icon.png',
+                     width: 48,
+                     height: 32,
+                     textColor: '#ffffff',
+                     textSize: 10
+                     }, {
+                     url: 'group_plane_icon.png',
+                     width: 48,
+                     height: 32,
+                     textColor: '#ffffff',
+                     textSize: 10
+                     }]
+        }
+
+        bounds = new google.maps.LatLngBounds();
+
+        suaShapeArr = [];
+        
+		//installMarkers();
+		/*installMarkers('[    {        "gufi": "us.nas.20140421T084329.000001",        "direction": "Bearing pending",        "lastIdentifiedLatitude": 36.635555,        "lastIdentifiedLongitude": -76.855,        "flightIdentification": "UAL1401"    },    {        "gufi": "us.nas.20140421T081207.000010",        "direction": "East by south",        "lastIdentifiedLatitude": 35.864445,        "lastIdentifiedLongitude": -78.81639,        "flightIdentification": "SWA4988"    },    {        "gufi": "us.nas.20140421T081229.000011",        "direction": "West",        "lastIdentifiedLatitude": 42,        "lastIdentifiedLongitude": -87.9,        "flightIdentification": "UAL1264"    },    {        "gufi": "us.nas.20140421T090619.000002",        "direction": "South by east",        "lastIdentifiedLatitude": 22.79861,        "lastIdentifiedLongitude": -71.58111,        "flightIdentification": "JBU209"    },    {        "gufi": "us.nas.20140421T093507.000002",        "direction": "South by west",        "lastIdentifiedLatitude": 44.164722,        "lastIdentifiedLongitude": -93.91361,        "flightIdentification": "N8887B"    },    {        "gufi": "us.nas.20140421T081826.000001",        "direction": "Southwest",        "lastIdentifiedLatitude": 36.366665,        "lastIdentifiedLongitude": -79.68139,        "flightIdentification": "SWA437"    },    {        "gufi": "us.nas.20140421T085021.000001",        "direction": "Northwest by west",        "lastIdentifiedLatitude": 41.050278,        "lastIdentifiedLongitude": -81.72195,        "flightIdentification": "RPA3391"}]');*/
+
+		// TEST AIRPORT:
+
+		/*for(i=0; i<20; i++){
+			var myLatLng = new google.maps.LatLng(37.09024 + 16*(Math.random() - Math.random()),-95.71289 + 30*(Math.random() - Math.random()));
+			airportPosArr.push(myLatLng);
+		}
+
+		installAirport("");*/
+        
+        // INSTALL BOUNDARIES LAYER
+        
+        //'http://ovdex.solentus.com/ovdex/kml/artcc-enroute.kml';
+        var artccUrl = 'http://ovdex.solentus.com/quercus/ovdex/kml/FAA_ARTCCs.kml';
+        boundariesLayer = new google.maps.KmlLayer(artccUrl);
+        //boundariesLayer.setMap(map);
+        
+        
+        // ADD EVENT FOR OPTIMIZATION :
+        
+        google.maps.event.addListener(map, "idle", onMapIdle);
+        google.maps.event.addListener(map, "drag", onMapDrag);
+        google.maps.event.addListener(map, "zoom_changed", onMapZoomChange);
+        
+        // HIDE POIS :
+        
+        map.setOptions({styles: [{ featureType: "poi", elementType: "labels", stylers: [ { visibility: "off" } ] }]})
+        
+        //
+
+        /*setTimeout(function(){
+	        installDestAirportMarker(37.09024, -95.71289);
+			installOriginAirportMarker(36.635555, -76.855);
+		},1000)*/
+
+		// test SUA...
+		//loadSUA();
+	}
+    
+    function resetMap(){
+        isSearching = false;
+        
+        map.setZoom(4);
+        map.setCenter(centerPoint);
+        
+        clearAllMarkers();
+        
+        markerCluster = null;
+        
+        hideFlightPath();
+        
+        hideAirport();
+        
+        hideBoundaries();
+        
+        hideDestAirportMarker();
+        
+        hideOriginAirportMarker();
+        
+        hideSAA();
+        
+        hideTempature();
+        
+        hideWeather();
+        
+        
+    }
+
+	function installMarkers(jsonData){
+        
+        clearAllMarkers();
+        
+        flightDataArr = JSON.parse(jsonData);
+        
+        if(flightDataArr.length > 3000){
+            markerClusterOptions = {
+                gridSize: 80,
+                //maxZoom: 15,
+                ignoreHidden: true,
+                minimumClusterSize: 6,
+                styles: [{
+                         url: 'group_plane_icon.png',
+                         width: 48,
+                         height: 32,
+                         textColor: '#ffffff',
+                         textSize: 10
+                         }, {
+                         url: 'group_plane_icon.png',
+                         width: 48,
+                         height: 32,
+                         textColor: '#ffffff',
+                         textSize: 10
+                         }, {
+                         url: 'group_plane_icon.png',
+                         width: 48,
+                         height: 32,
+                         textColor: '#ffffff',
+                         textSize: 10
+                         }]
+            }
+        }
+        
+        for(var i=0; i<flightDataArr.length; i++){
+			
+            var myLatLng = new google.maps.LatLng(flightDataArr[i].lastIdentifiedLatitude, flightDataArr[i].lastIdentifiedLongitude);
+			posArr.push(myLatLng);
+            
+            markerIdArr.push(flightDataArr[i].flightIdentification);
+            
+            // start installing....
+            
+            var image = {url: planeDirectionImg(flightDataArr[i].direction),
+            			anchor: new google.maps.Point(9,9)};
+
+			var planeMarker = new google.maps.Marker({position: myLatLng,
+                                                     icon: image
+                                                     });
+			
+            google.maps.event.addListener(planeMarker, 'mousedown', markerClick);
+
+			markerArr.push(planeMarker);
+            
+		}
+        
+        //alert("markerIdArr: " + markerIdArr.length + " - flightDataArr: " + flightDataArr.length);
+        
+        if(!isSearching){
+            showAllMarker();
+        } else {
+            for(var i=0; i<filterMarkerArr.length; i++){
+                filterMarkerArr[i].setMap(map);
+            }
+        }
+        
+        onMapIdle(); // calculate number of markers
+	}
+    
+    function showAllMarker(){
+        /*for(var i=0; i<markerArr.length; i++){
+			markerArr[i].setMap(map);
+		}*/
+        
+        if(!markerCluster){
+            markerCluster = new MarkerClusterer(map, markerArr, markerClusterOptions);
+        } else {
+            markerCluster.setOptions({map:map});
+            //markerCluster.addMarkers(markerArr);
+            //markerCluster.repaint();
+        }
+        
+	}
+    
+	function hideAllMarker(){
+        for(var i=0; i<markerArr.length; i++){
+			markerArr[i].setMap(null);
+		}
+        
+		//markerCluster.clearMarkers();
+        
+        markerCluster.setOptions({map:null});
+	}
+    
+    function clearAllMarkers(){
+        if(markerArr.length){
+            markerCluster.clearMarkers();
+            markerCluster.setOptions({map:null});
+            markerCluster = null;
+            
+            for(var i=0; i<markerArr.length; i++){
+                var marker = markerArr[i];
+                marker.setMap(null);
+                marker = null;
+            }
+        }
+        
+        markerArr = [];
+        markerIdArr = [];
+        flightDataArr = [];
+    }
+    
+    function showFlightPath(jsonData){
+        if(flightPath){
+            hideFlightPath();
+        }
+        
+        var dataArr = JSON.parse(jsonData)[0].traversedWaypointLatLongArrayList;
+        
+        flightPlanCoordinates = [];
+        
+        for(var i=0; i<dataArr.length; i++){
+            var latLong = new google.maps.LatLng(dataArr[i].latitude, dataArr[i].longitude);
+            flightPlanCoordinates.push(latLong);
+        }
+        
+        flightPath = new google.maps.Polyline({path: flightPlanCoordinates,
+                                              geodesic: true,
+                                              strokeColor: '#FF0000',
+                                              strokeOpacity: 1.0,
+                                              strokeWeight: 2
+                                              });
+                                                                               
+        flightPath.setMap(map);
+    }
+    
+    function hideFlightPath(){
+        flightPath.setMap(null);
+    }
+
+	function planeDirectionImg(dir){
+		var str = "";
+
+		if (dir == "East") {
+	        str = "plane_east.png";
+	    } 
+	    else if (dir == "East by north") {
+	        str = "plane_east_by_north.png";
+	    } 
+	    else if (dir == "East by south") {
+	        str = "plane_east_by_south.png";
+	    } 
+	    else if (dir == "East-northeast") {
+	        str = "plane_east_northeast.png";
+	    } 
+	    else if (dir == "East-southeast") {
+	        str = "plane_east_southeast.png";
+	    } 
+	    else if (dir == "North") {
+	        str = "plane_north.png";
+	    } 
+	    else if (dir == "North by east") {
+	        str = "plane_north_by_east.png";
+	    } 
+	    else if (dir == "North by west") {
+	        str = "plane_north_by_west.png";
+	    } 
+	    else if (dir == "Northeast") {
+	        str = "plane_northeast.png";
+	    } 
+	    else if (dir == "Northeast by east") {
+	        str = "plane_northeast_by_east.png";
+	    } 
+	    else if (dir == "Northeast by north") {
+	        str = "plane_northeast_by_north.png";
+	    } 
+	    else if (dir == "North-northeast") {
+	        str = "plane_north_northeast.png";
+	    } 
+	    else if (dir == "North-northwest") {
+	        str = "plane_north_northwest.png";
+	    } 
+	    else if (dir == "Northwest") {
+	        str = "plane_northwest.png";
+	    } 
+	    else if (dir == "Northwest by north") {
+	        str = "plane_northwest_by_north.png";
+	    } 
+	    else if (dir == "Northwest by west") {
+	        str = "plane_northwest_by_west.png";
+	    } 
+	    else if (dir == "South") {
+	        str = "plane_south.png";
+	    } 
+	    else if (dir == "South by east") {
+	        str = "plane_south_by_east.png";
+	    } 
+	    else if (dir == "South by west") {
+	        str = "plane_south_by_west.png";
+	    } 
+	    else if (dir == "Southeast") {
+	        str = "plane_southeast.png";
+	    } 
+	    else if (dir == "Southeast by east") {
+	        str = "plane_southeast_by_east.png";
+	    } 
+	    else if (dir == "Southeast by south") {
+	        str = "plane_southeast_by_south.png";
+	    } 
+	    else if (dir == "South-southeast") {
+	        str = "plane_south_southeast.png";
+	    } 
+	    else if (dir == "South-southwest") {
+	        str = "plane_south_southwest.png";
+	    } 
+	    else if (dir == "Southwest") {
+	        str = "plane_southwest.png";
+	    } 
+	    else if (dir == "Southwest by south") {
+	        str = "plane_southwest_by_south.png";
+	    } 
+	    else if (dir == "Southwest by west") {
+	        str = "plane_southwest_by_west.png";
+	    } 
+	    else if (dir == "West") {
+	        str = "plane_west.png";
+	    } 
+	    else if (dir == "West by north") {
+	        str = "plane_west_by_north.png";
+	    } 
+	    else if (dir == "West by south") {
+	        str = "plane_west_by_south.png";
+	    } 
+	    else if (dir == "West-northwest") {
+	        str = "plane_west_northwest.png";
+	    } 
+	    else if (dir == "West-southwest") {
+	        str = "plane_west_southwest.png";
+	    } else {
+	        // if(direction == "Bearing pending") or some error direction
+	        str = "plane_bearing_pending.png";
+	    }
+
+		return str;
+	}
+    
+    function updateAvailableMarker(cur){
+        window.location = "too:updateAvailableMarker:" + cur;
+    }
+    
+    function onMapIdle(){
+        
+        var countArr;
+        
+        if(isSearching){
+            countArr = filterMarkerArr;
+        } else {
+            countArr = markerArr;
+        }
+        
+        if(countArr.length == 0){
+            updateAvailableMarker(0);
+            return;
+        }
+        
+        var count = 0;
+        for(var i=0; i<countArr.length; i++){
+            var marker = countArr[i];
+            
+            if(map.getBounds().contains(marker.getPosition())){
+                count++;
+            }
+        }
+        
+        updateAvailableMarker(count);
+    }
+    
+    function onMapDrag(){
+        if(destPos) moveDestAirportMarker();
+        if(originPos) moveOriginAirportMarker();
+    }
+    
+    function onMapZoomChange(){
+        //alert(map.getZoom());
+    }
+
+	function installAirport(jsonData){
+        clearOldAirport();
+        
+		airportPosArr = JSON.parse(jsonData).majairports;
+        
+        airportMarkerArr = [];
+        
+		for(var i=0; i<airportPosArr.length; i++){
+			var image = 'icon_airport.png';
+			//var myLatLng = airportPosArr[i];
+            var myLatLng = new google.maps.LatLng(airportPosArr[i].latitude, airportPosArr[i].longitude);
+			var marker = new google.maps.Marker({position: myLatLng, map: map, icon: image});
+			
+			airportMarkerArr[i] = marker;
+
+			google.maps.event.addListener(marker, 'mousedown', airportClick);
+		}
+        
+		hideAirport();
+	}
+    
+    function clearOldAirport(){
+        if(airportMarkerArr.length > 0){
+            for(var i=0; i<airportMarkerArr.length; i++){
+                airportMarkerArr[i].setMap(null);
+                airportMarkerArr[i] = null;
+            }
+        }
+    }
+    
+    function airportClick(){
+        var id = airportMarkerArr.indexOf(this);
+        
+        window.location = "too:openAirportDetail:" + airportPosArr[id].airportname + ":" + airportPosArr[id].code;
+        
+        //alert("AIRPORT: \n" + airportPosArr[id].airportname + "\n(" + airportPosArr[id].code + ")");
+    }
+    
+	function showAirport(){
+        var bounds = new google.maps.LatLngBounds();
+        
+        for(var i=0; i<airportMarkerArr.length; i++){
+			airportMarkerArr[i].setMap(map);
+            
+            var latLong = airportMarkerArr[i].getPosition();
+            bounds.extend(latLong);
+		}
+        
+        //  Fit these bounds to the map
+        //map.fitBounds(bounds);
+	}
+
+	function hideAirport(){
+        for(var i=0; i<airportMarkerArr.length; i++){
+			airportMarkerArr[i].setMap(null);
+		}
+	}
+
+	function showMapNormal(){
+		map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+	}
+
+	function showMapHybrid(){
+		map.setMapTypeId(google.maps.MapTypeId.HYBRID);
+	}
+
+	function showCountryLabel(){
+		map.setOptions({styles: [{
+			    featureType: "administrative",
+			    elementType: "labels",
+			    stylers: [
+			        { visibility: "on" }
+			    ]
+			}
+		]})
+	}
+
+	function hideCountryLabel(){
+		map.setOptions({styles: [{
+			    featureType: "administrative",
+			    elementType: "labels",
+			    stylers: [
+			        { visibility: "off" }
+			    ]
+			}
+		]})
+	}
+
+	function showBoundaries(){
+		
+		/*var imageBounds = new google.maps.LatLngBounds(
+										new google.maps.LatLng(17.685895196738677, -129.462890625), 
+										new google.maps.LatLng(50.56928286558243, -62.9296875));
+
+		boundariesLayer = new google.maps.GroundOverlay(
+	      './boundaries.png', imageBounds);*/
+        
+		/*boundariesLayer = new google.maps.GroundOverlay(
+	      'http://d13yacurqjgara.cloudfront.net/users/102849/screenshots/946623/picshift_1x.png', imageBounds);*/
+		
+		boundariesLayer.setMap(map);
+        
+        if(!isSearching){
+            showAllMarker();
+        } /*else {
+            for(var i=0; i<filterMarkerArr.length; i++){
+                filterMarkerArr[i].setMap(map);
+            }
+        }*/
+	}
+
+	function hideBoundaries(){
+		boundariesLayer.setMap(null);
+	}
+
+	function showSAA(){
+		var imageBounds = new google.maps.LatLngBounds(	
+										new google.maps.LatLng(17.685895196738677, -129.462890625), 
+										new google.maps.LatLng(50.56928286558243, -62.9296875));
+
+		saaLayer = new google.maps.GroundOverlay(
+	      './SAAs.jpg', imageBounds);
+		
+		saaLayer.setMap(map);
+	}
+
+	function hideSAA(){
+		saaLayer.setMap(null);
+	}
+
+	function getDistOf(m0, m1){
+		var d = google.maps.geometry.spherical.computeDistanceBetween(m0, m1);
+		d = Math.round(d/1000);
+		//console.log("distance = " + Math.round(d/1000) + " km");
+		return d;
+		//50km = 1 marker
+	}
+
+	function showMapNormal(){
+		//alert("showMapNormal")
+		map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
+	}
+
+	function showMapHybrid(){
+		//alert("showMapHybrid")
+		map.setMapTypeId(google.maps.MapTypeId.HYBRID);
+	}
+    
+	function showTemperature(){
+		if(!tempatureLayer){
+			tempatureLayer = new google.maps.weather.WeatherLayer({
+				temperatureUnits: google.maps.weather.TemperatureUnit.FAHRENHEIT
+			});
+		}
+
+		tempatureLayer.setMap(map);
+	}
+
+	function hideTempature(){
+		tempatureLayer.setMap(null);
+	}
+
+	function showWeather(){
+		if(!cloudLayer){
+			cloudLayer = new google.maps.weather.CloudLayer();
+		}
+		cloudLayer.setMap(map);
+	}
+
+	function hideWeather(){
+		cloudLayer.setMap( null );
+	}
+
+	function showRegionByName(name){
+		for(var i=0; i<regionNameArr.length; i++){
+			if(name == regionNameArr[i]){
+				map.setCenter(regionPosArr[i]);
+			}
+		}
+	}
+    
+    function showFlightOnMapByGUFI(gufi){
+        isSearching = true;
+        
+        hideAllMarker();
+        
+        map.setZoom(4);
+        
+        clearOldFilter();
+        
+        filterMarkerArr = [];
+        filterDataArr = [];
+        
+        for(var i=0; i<flightDataArr.length; i++){
+            
+            var marker = markerArr[i];
+            
+            if(flightDataArr[i].gufi == gufi){
+                filterDataArr.push(flightDataArr[i]);
+                
+                filterMarkerArr.push(marker);
+                
+                marker.setMap(map);
+                
+                map.setCenter(marker.getPosition());
+                
+                //alert("found it!")
+                
+            } else {
+                marker.setMap(null);
+            }
+        }
+        
+        // update number of available markers
+        
+        onMapIdle();
+    }
+    
+    function clearOldFilter(){
+        if(filterMarkerArr.length>0){
+            for(var i=0; i<filterMarkerArr.length; i++){
+                filterMarkerArr[i].setMap(null);
+            }
+        }
+    }
+    
+    function filterFlights(result){
+        isSearching = true;
+        
+        hideAllMarker();
+        
+        clearOldFilter()
+        
+        var resultArr = JSON.parse(result);
+        
+        if(resultArr.length == 0){
+            var msg = "No results";
+            window.location = "too:alertMessage:" + msg;
+            
+            filterMarkerArr = [];
+            
+            map.setZoom(4);
+            //map.setCenter(centerPoint);
+            
+            onMapIdle();
+            return;
+        }
+        
+        var tmpMarkerArr = [];
+        var tmpFlightDataArr = [];
+        var tmpMakerIdArr = [];
+        
+        filterDataArr = [];
+        
+        for(var i=0; i<markerArr.length; i++){
+            var marker = markerArr[i];
+            
+            marker.setMap(null);
+            
+            for(var j=0; j<resultArr.length; j++){
+                
+                if(flightDataArr[i].gufi.toLowerCase() == resultArr[j].gufi.toLowerCase())
+                {
+                    tmpMarkerArr.push(marker);
+                    tmpFlightDataArr.push(flightDataArr[i]);
+                    tmpMakerIdArr.push(flightDataArr[i].flightIdentification);
+                    
+                } 
+            }
+        }
+        
+        if(tmpMarkerArr.length > 0){
+            filterMarkerArr = tmpMarkerArr;
+            filterDataArr = tmpFlightDataArr;
+            // update number of available markers
+            
+            var bounds = new google.maps.LatLngBounds();
+            
+            for(i=0;i<filterMarkerArr.length;i++){
+                filterMarkerArr[i].setMap(map);
+                
+                var latLong = filterMarkerArr[i].getPosition();
+                bounds.extend(latLong);
+            }
+            
+            //alert(filterMarkerArr[0].getIcon().url);
+            
+            //  Fit these bounds to the map
+            map.fitBounds(bounds);
+            
+        } else {
+            var msg = "No results";
+            
+            window.location = "too:alertMessage:" + msg;
+            
+            filterMarkerArr = [];
+            
+            //map.setZoom(4);
+            //map.setCenter(centerPoint);
+            
+        }
+        
+        onMapIdle();
+    }
+    
+    function filterFlightByAircraftId(aircraftId){
+        isSearching = true;
+        
+        hideAllMarker();
+        
+        clearOldFilter()
+        
+        var tmpMarkerArr = [];
+        
+        filterDataArr = [];
+        
+        for(var i=0; i<markerArr.length; i++){
+            var marker = markerArr[i];
+            
+            if(flightDataArr[i].flightIdentification.toLowerCase() == aircraftId.toLowerCase()){
+                tmpMarkerArr.push(marker);
+                filterDataArr.push(flightDataArr[i]);
+            }
+        }
+        
+        if(tmpMarkerArr.length > 0){
+            filterMarkerArr = tmpMarkerArr;
+            
+            var bounds = new google.maps.LatLngBounds();
+            
+            for(i=0;i<filterMarkerArr.length;i++){
+                filterMarkerArr[i].setMap(map);
+                
+                var latLong = filterMarkerArr[i].getPosition();
+                bounds.extend(latLong);
+            }
+            
+            //  Fit these bounds to the map
+            map.fitBounds (bounds);
+            
+        } else {
+            var msg = "No results";
+            window.location = "too:alertMessage:" + msg;
+            
+            filterMarkerArr = [];
+            
+            map.setZoom(4);
+            map.setCenter(centerPoint);
+            
+        }
+        
+        onMapIdle();
+    }
+
+    function markerClick(e) {
+    	//alert("marker click");
+        var icon;
+        if(prevClickedMarker){
+            icon = {url: prevIconURL, anchor: new google.maps.Point(9,9)};
+            prevClickedMarker.setIcon(icon);
+        }
+        
+        prevClickedMarker = this;
+        prevIconURL = this.getIcon().url;
+        
+        icon = {url: "white_" + this.getIcon().url, anchor: new google.maps.Point(9,9)};
+        this.setIcon(icon);
+        
+        if(map.getZoom()<6){
+            map.setZoom(6);
+        }
+        
+        map.setCenter(this.getPosition());
+        
+        currentActiveMarkerId = markerArr.indexOf(this);
+        
+        window.location = "too:openMarkerDetail:" + markerIdArr[currentActiveMarkerId];
+    }
+    
+    function unclickAllMarkers(){
+        
+        if(prevClickedMarker){
+            var icon = {url: prevIconURL,
+                        anchor: new google.maps.Point(9,9)};
+            
+            prevClickedMarker.setIcon(icon);
+        }
+        
+        prevClickedMarker = null;
+        prevIconURL = "";
+        
+        currentActiveMarkerId = null;
+    }
+
+    function installDestAirportMarker(lat, long){
+    	destPos = new google.maps.LatLng(lat, long);
+
+    	//showDestAirportMarker();
+    	//hideDestAirportMarker();
+    }
+
+    function installOriginAirportMarker(lat, long){
+    	originPos = new google.maps.LatLng(lat, long);
+
+    	//showOriginAirportMarker();
+    	//hideOriginAirportMarker();
+    }
+    
+    function showDestAirportMarker(){
+		$("#dest_marker").show();
+    }
+
+    function hideDestAirportMarker(){
+    	$("#dest_marker").hide();
+    }
+
+    function showOriginAirportMarker(){
+    	$("#origin_marker").show();
+    }
+
+    function hideOriginAirportMarker(){
+    	$("#origin_marker").hide();
+    }
+
+    function moveDestAirportMarker(){
+    	var topRight = map.getProjection().fromLatLngToPoint(map.getBounds().getNorthEast());
+		var bottomLeft = map.getProjection().fromLatLngToPoint(map.getBounds().getSouthWest());
+    	var scale = Math.pow(2,map.getZoom());
+		//var worldPoint = map.getProjection().fromLatLngToPoint(marker_list[num].getPosition());
+		var worldPoint = map.getProjection().fromLatLngToPoint(destPos);
+		var point = new google.maps.Point((worldPoint.x-bottomLeft.x)*scale, (worldPoint.y-topRight.y)*scale);
+ 		
+ 		$("#dest_marker").css({
+		    left:(point.x - $("#dest_marker").outerWidth()/2),
+		    top:(point.y - $("#dest_marker").outerHeight())
+		});
+    }
+
+    function moveOriginAirportMarker(){
+    	var topRight = map.getProjection().fromLatLngToPoint(map.getBounds().getNorthEast());
+		var bottomLeft = map.getProjection().fromLatLngToPoint(map.getBounds().getSouthWest());
+    	var scale = Math.pow(2,map.getZoom());
+		//var worldPoint = map.getProjection().fromLatLngToPoint(marker_list[num].getPosition());
+		var worldPoint = map.getProjection().fromLatLngToPoint(originPos);
+		var point = new google.maps.Point((worldPoint.x-bottomLeft.x)*scale, (worldPoint.y-topRight.y)*scale);
+ 		
+ 		$("#origin_marker").css({
+		    left:(point.x - $("#origin_marker").outerWidth()/2),
+		    top:(point.y - $("#origin_marker").outerHeight()/2)
+		});
+    }
+
+    // SUA SERVICES :
+
+    function loadSUA(){
+        if(suaShapeArr.length > 0){
+            for(var i=0; i<suaShapeArr.length; i++){
+                var sua = suaShapeArr[i];
+                sua = null;
+            }
+        }
+
+    	suaDataArr = [];
+
+    	//$.getJSON('http://ovdex.solentus.com/AIMDataServices/webresources/SUAServices', function(data) { 
+    	$.getJSON('sua.txt', function(data) { 
+			$.each(data.lwMessages, function(i, sua) {  
+
+				// DRAW LINES...
+
+				$.each(sua.lines, function(n, lin) {
+					var PolylineCoords = []; 
+					var str_array = lin.pointList.toString().split(","); 
+
+					// Extract data...
+					for(var i = 0; i < str_array.length; i++)
+					{
+					   	// Trim the excess whitespace.
+					   	str_array[i] = str_array[i].replace(/^\s*/, "").replace(/\s*$/, "");
+
+					   	// Add additional code here, such as: 
+						var str_array_inner = str_array[i].toString().split(" ");
+						var latitude=null;
+						var longitude = null;
+
+						for(var j = 0; j < str_array_inner.length; j++)
+						{
+							if(j==0) {
+								longitude = str_array_inner[j].toString(); 
+							} else {
+								latitude = str_array_inner[j].toString(); 
+							}   
+						} 
+						
+						PolylineCoords.push(new google.maps.LatLng(latitude,longitude));
+					} 
+					
+					// Set draw style...
+					suaPolyLine = new google.maps.Polygon({
+						path: PolylineCoords,
+						strokeColor: "#EA6A45",
+						strokeOpacity: 0.8,
+						strokeWeight: 2,
+						fillColor: "#FDDE0C",
+						fillOpacity: 0.35, 
+					});
+
+					// make it appear on map...
+					//suaPolyLine.setMap(map); 
+
+					// GET DATA OF EACH SHAPE : 
+
+					var suaData = {};
+					suaData.name = sua.name;
+					suaData.note = sua.note;
+					suaData.schedule = [];
+					
+					$.each(sua.timetable, function(t, tim) { 
+					 	suaData.schedule.push(tim);
+					})
+
+					/*if(sua.name == "A-211 DOTHAN, AL"){
+						console.log(JSON.stringify(suaData));
+					}*/
+
+					suaDataArr.push(suaData);
+					suaShapeArr.push(suaPolyLine);
+				}); 
+				// end draw lines
+
+				// DRAW CIRCLE...
+				//console.log(sua.lines.length);
+				//console.log(sua.circles.length);
+
+				$.each(sua.circles, function(m, cir) {  
+					
+					var str_array_circles_Pos = cir.pos.toString(); 	
+					// Trim the excess whitespace.
+					str_array_circles_Pos = str_array_circles_Pos.replace(/^\s*/, "").replace(/\s*$/, ""); 
+
+					// Add additional code here, such as: 
+					var str_array_circles_Pos_inner = str_array_circles_Pos.toString().split(" "); 
+
+					var latitude_circles_Pos=null;
+					var longitude_circles_Pos = null;
+
+					for(var j = 0; j < str_array_circles_Pos_inner.length; j++)
+					{
+						if(j==0) { 
+						    longitude_circles_Pos = str_array_circles_Pos_inner[j].toString();  
+						}
+						else {
+							latitude_circles_Pos = str_array_circles_Pos_inner[j].toString(); 
+						}   
+					}  
+
+					var circlePoint = new google.maps.LatLng(latitude_circles_Pos, longitude_circles_Pos); 
+
+					var cr_radius = parseInt("0");
+
+					if(cir.uom.toString()=="FT")
+					{
+						cr_radius = parseFloat(cir.radius.toString()) * parseInt("0.000189394");  
+					}
+
+					if(cir.uom.toString()=="NM")
+					{
+						cr_radius = parseFloat(cir.radius.toString()) * parseInt("1.15078");
+					}
+
+					if(cir.uom.toString()=="MI")
+					{
+						cr_radius = parseFloat(cir.radius.toString());
+					}
+
+					suaPolyCircle = new google.maps.Circle({
+						center: circlePoint,
+						radius: parseFloat(cr_radius),
+						strokeColor: "#EA6A45",
+						strokeOpacity: 0.8,
+						strokeWeight: 2,
+						fillColor: "#FDDE0C",
+						fillOpacity: 0.35, 
+					}); 
+
+					//suaPolyCircle.setMap(map);
+
+					// GET DATA OF EACH SHAPE : 
+
+					var suaData = {};
+					suaData.name = sua.name;
+					suaData.note = sua.note;
+					suaData.schedule = [];
+					
+					$.each(sua.timetable, function(t, tim) { 
+					 	suaData.schedule.push(tim);
+					})
+
+					suaDataArr.push(suaData);
+					suaShapeArr.push(suaPolyCircle);
+				});
+				// END DRAW CIRCLES...
+
+				// DRAW RINGS
+
+				$.each(sua.rings, function(m, rig) {    
+					var Polyline_rings_Coords = []; 
+					var str_rings_array = rig.pointList.toString().split(","); 
+					for(var i = 0; i < str_rings_array.length; i++)
+					{
+						// Trim the excess whitespace.
+						str_rings_array[i] = str_rings_array[i].replace(/^\s*/, "").replace(/\s*$/, "");
+						// Add additional code here, such as: 
+						var str_rings_array_inner = str_rings_array[i].toString().split(" ");
+						
+						var latitude=null;
+						var longitude = null;
+						for(var j = 0; j < str_rings_array_inner.length; j++)
+						{
+							if(j==0) {
+								longitude = str_rings_array_inner[j].toString(); 
+							} else {
+								latitude = str_rings_array_inner[j].toString(); 
+							}   
+						} 
+
+						Polyline_rings_Coords.push(new google.maps.LatLng(latitude,longitude));   
+					}  
+
+					suaPolyRing = new google.maps.Polygon({
+						path: Polyline_rings_Coords,
+						strokeColor: "#EA6A45",
+						strokeOpacity: 0.8,
+						strokeWeight: 2,
+						fillColor: "#FDDE0C",
+						fillOpacity: 0.35, 
+					});
+
+					//suaPolyRing.setMap(map);
+
+					// GET DATA OF EACH SHAPE : 
+
+					var suaData = {};
+					suaData.name = sua.name;
+					suaData.note = sua.note;
+					suaData.schedule = [];
+					
+					$.each(sua.timetable, function(t, tim) { 
+					 	suaData.schedule.push(tim);
+					})
+
+					suaDataArr.push(suaData);
+					suaShapeArr.push(suaPolyRing);
+				})
+				// end DRAW RINGS
+
+				// DRAW ARCS
+
+				$.each(sua.arcs, function(h, arc) {  
+						 
+					var startPoint = null;
+					var endPoint =  null;
+					var center = null; 
+
+					// Add additional code here, such as: 
+					var str_array_arcs_sua_centerPos_inner = arc.pos.toString().split(" "); 
+
+					var latitude_arcs_sua_centerPos=null;
+					var longitude_arcs_sua_centerPos = null;
+					for(var j = 0; j < str_array_arcs_sua_centerPos_inner.length; j++)
+					{
+						if(j==0) {
+							 longitude_arcs_sua_centerPos = str_array_arcs_sua_centerPos_inner[j].toString(); 
+						}
+						else {
+							
+							latitude_arcs_sua_centerPos = str_array_arcs_sua_centerPos_inner[j].toString();
+							//longitude_arcs_centerPos = "-"+longitude_arcs_centerPos; 
+						}   
+					} 
+
+					center = new google.maps.LatLng(latitude_arcs_sua_centerPos, longitude_arcs_sua_centerPos);	 
+						 
+					// Add additional code here, such as: 
+					var str_array_arcs_sua_startPoint_inner = arc.startPoint.toString().split(" "); 
+
+					var latitude_arcs_sua_startPoint=null;
+					var longitude_arcs_sua_startPoint = null;
+					for(var j = 0; j < str_array_arcs_sua_startPoint_inner.length; j++)
+					{
+						if(j==0) {
+							 longitude_arcs_sua_startPoint = str_array_arcs_sua_startPoint_inner[j].toString(); 
+						}
+						else {
+							
+							latitude_arcs_sua_startPoint = str_array_arcs_sua_startPoint_inner[j].toString();
+							//longitude_arcs_centerPos = "-"+longitude_arcs_centerPos; 
+						}   
+					}  
+					 	
+					startPoint = new google.maps.LatLng(latitude_arcs_sua_startPoint, longitude_arcs_sua_startPoint);	 
+
+					var end_lix = latitude_arcs_sua_centerPos + ((arc.radius/2)* Math.cos(arc.endAngle));
+					var end_lgy = longitude_arcs_sua_centerPos + ((arc.radius/2)* Math.sin(arc.endAngle)); 
+
+					endPoint = new google.maps.LatLng(parseFloat(end_lix), parseFloat(end_lgy)); 
+						  
+						 
+					var arc_radius = parseInt("0");
+
+					if(arc.uom.toString()=="FT"){
+						arc_radius = parseFloat(arc.radius.toString()) * parseInt("0.000189394");  
+					}
+
+					if(arc.uom.toString()=="NM"){
+						arc_radius = parseFloat(arc.radius.toString()) * parseInt("1.15078");
+					}
+
+					if(arc.uom.toString()=="MI"){
+						arcrc_radius = parseFloat(arc.radius.toString());
+					}
+						 
+					var sua_arcPts = null;
+					
+					var sua_arcPts = drawArc(center, arc.beginAngle, arc.endAngle,arc_radius.toString());
+
+					// add the start and end lines
+					sua_arcPts.push(center);
+					bounds.extend(center);
+					sua_arcPts.push(startPoint);
+						
+					// apply on the map				 
+					suaPolyArc = new google.maps.Polygon({
+						paths: [sua_arcPts],
+						strokeColor: "#FF0000",
+						strokeOpacity: 0.8,
+						strokeWeight: 10,
+						fillColor: "#FF0000",
+						fillOpacity: 0.35, 
+					}); 
+
+					//suaPolyArc.setMap(map);
+
+					// GET DATA OF EACH SHAPE : 
+
+					var suaData = {};
+					suaData.name = sua.name;
+					suaData.note = sua.note;
+					suaData.schedule = [];
+					
+					$.each(sua.timetable, function(t, tim) { 
+					 	suaData.schedule.push(tim);
+					})
+
+					suaDataArr.push(suaData);
+
+					suaShapeArr.push(suaPolyArc);
+				})
+
+			}) // end lwMessages...
+
+			console.log("TOTAL SUA SHAPES: " + suaShapeArr.length);
+
+			// add click event for all shapes...
+
+			for(var i=0; i<suaShapeArr.length; i++){
+				var suaItem = suaShapeArr[i];
+
+				google.maps.event.addListener(suaItem, 'click', suaClick);
+                
+                suaItem.setMap(map);
+			}
+                  
+
+		}) // end json parse...
+    } // end function load SUAs
+
+    function suaClick(){
+    	var id = suaShapeArr.indexOf(this);
+    	var data = suaDataArr[id];
+
+    	console.log(JSON.stringify(data));
+
+    	window.location = "too:openSuaDetail:" + JSON.stringify(data);
+    }
+
+    function showSUA(){
+        loadSUA();
+        
+    	/*for(var i=0; i<suaShapeArr.length; i++){
+    		var sua = suaShapeArr[i];
+    		sua.setMap(map);
+    	}*/
+    }
+
+    function hideSUA(){
+    	for(var i=0; i<suaShapeArr.length; i++){
+    		var sua = suaShapeArr[i];
+    		sua.setMap(null);
+    	}
+    }
+
+    function drawArc(center, initialBearing, finalBearing, radius) 
+    { 
+		var d2r = Math.PI / 180;   // degrees to radians 
+		var r2d = 180 / Math.PI;   // radians to degrees 
+		//console.log(center);
+		var points = 32; 
+
+		// find the raidus in lat/lon 
+		var rlat = (radius / EarthRadiusMeters) * r2d; 
+		var rlng = rlat / Math.cos(center.lat() * d2r); 
+
+		var extp = new Array();
+
+		var deltaBearing = (finalBearing - initialBearing) / points;
+
+		for (var i=0; (i < points+1); i++) { 
+			extp.push(center.DestinationPoint(initialBearing + i*deltaBearing, radius)); 
+			bounds.extend(extp[extp.length-1]);
+		}
+
+		return extp;
+	}
+
+	google.maps.LatLng.prototype.DestinationPoint = function (brng, dist) {
+		var R = EarthRadiusMeters; // earth's mean radius in meters
+		var brng = brng.toRad();
+		var lat1 = this.lat().toRad(), lon1 = this.lng().toRad();
+		var lat2 = Math.asin( Math.sin(lat1)*Math.cos(dist/R) + 
+							  Math.cos(lat1)*Math.sin(dist/R)*Math.cos(brng) );
+		var lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(dist/R)*Math.cos(lat1), 
+									 Math.cos(dist/R)-Math.sin(lat1)*Math.sin(lat2));
+		
+		return new google.maps.LatLng(lat2.toDeg(), lon2.toDeg());
+	}
+	
+	// === A function which returns the bearing between two LatLng in radians ===
+	// === If v1 is null, it returns the bearing between the first and last vertex ===
+	// === If v1 is present but v2 is null, returns the bearing from v1 to the next vertex ===
+	// === If either vertex is out of range, returns void ===
+	google.maps.LatLng.prototype.Bearing = function(otherLatLng) {
+		var from = this;
+		var to = otherLatLng;
+		if (from.equals(to)) {
+			return 0;
+		}
+		var lat1 = from.latRadians();
+		var lon1 = from.lngRadians();
+		var lat2 = to.latRadians();
+		var lon2 = to.lngRadians();
+		var angle = - Math.atan2( Math.sin( lon1 - lon2 ) * Math.cos( lat2 ), Math.cos( lat1 ) * Math.sin( lat2 ) - Math.sin( lat1 ) * Math.cos( lat2 ) * Math.cos( lon1 - lon2 ) );
+		if ( angle < 0.0 ) angle  += Math.PI * 2.0;
+		if ( angle > Math.PI ) angle -= Math.PI * 2.0; 
+		return parseFloat(angle.toDeg());
+	}
+	
+	
+	/**
+	 * Extend the Number object to convert degrees to radians
+	 *
+	 * @return {Number} Bearing in radians
+	 * @ignore
+	 */ 
+	Number.prototype.toRad = function () {
+		return this * Math.PI / 180;
+	};
+	
+	/**
+	 * Extend the Number object to convert radians to degrees
+	 *
+	 * @return {Number} Bearing in degrees
+	 * @ignore
+	 */ 
+	Number.prototype.toDeg = function () {
+		return this * 180 / Math.PI;
+	};
+	
+	/**
+	 * Normalize a heading in degrees to between 0 and +360
+	 *
+	 * @return {Number} Return 
+	 * @ignore
+	 */ 
+	Number.prototype.toBrng = function () {
+		return (this.toDeg() + 360) % 360;
+	};	
+
+    //
+
+	google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+	</head>
+
+	<body>
+		<!--<a href="#" onclick="showSUA()">SHOW SUA</a>
+		<a href="#" onclick="hideSUA()">HIDE SUA</a>
+		<a href="#" onclick="showOriginAirportMarker(); showDestAirportMarker();">SHOW DEST & ORIGIN</a>
+		<a href="#" onclick="showAllMarker()">SHOW ALL MARKERS</a>
+		<a href="#" onclick="hideAllMarker()">HIDE ALL MARKERS</a>
+		<a href="#" onclick="showAirport()">SHOW AIRPORT</a>
+		<a href="#" onclick="hideAirport()">HIDE AIRPORT</a>
+		<a href="#" onclick="showRegionByName('america')">SHOW AMERICA</a>
+		<a href="#" onclick="showRegionByName('south_america')">SHOW SOUTH AMERICA</a>
+		<a href="#" onclick="showRegionByName('middle_east_asia')">SHOW MIDDLE EAST ASIA</a>
+		<a href="#" onclick="showRegionByName('europe')">SHOW EUROPE</a>
+		<a href="#" onclick="showCountryLabel()">SHOW LABEL</a>
+		<a href="#" onclick="hideCountryLabel()">HIDE LABEL</a>
+		<a href="#" onclick="showSAA()">SHOW SAA</a>
+		<a href="#" onclick="hideSAA()">HIDE SAA</a>
+		<a href="#" onclick="showBoundaries()">SHOW BOUNDARIES</a>
+		<a href="#" onclick="hideBoundaries()">HIDE BOUNDARIES</a>
+		<div onclick="showMapNormal()">SHOW MAP</div>
+		<div onclick="showMapHybrid()">SHOW HYBRID</div>
+		<div onclick="showWeather()">SHOW WEATHER</div>
+		<div onclick="hideWeather()">HIDE WEATHER</div>
+		<div onclick="showTemperature()">SHOW TEMPERATURE</div>
+		<div onclick="hideTempature()">HIDE TEMPERATURE</div>-->
+
+		<div id="map-canvas"></div>
+		<!--<img src="html/plane_icon.png" style="position:absolute; top:0px; left:0px;">-->
+		<div id="origin_marker">ABC</div>
+		<div id="dest_marker">Airline DEF</div>
+	</body>
+</html>

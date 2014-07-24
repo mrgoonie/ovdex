@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>490DF440-AB5C-41B9-953B-B5E39B0B600F</string>
+	<key>IDESourceControlProjectName</key>
+	<string>OVDexFlight</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>D6B1225E-56B4-4CAF-8C00-7F4849B97DF6</key>
+		<string>https://bitbucket.org/ovdex/ovdex-ipad-application.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>OVDexFlight.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>D6B1225E-56B4-4CAF-8C00-7F4849B97DF6</key>
+		<string>../..</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://bitbucket.org/ovdex/ovdex-ipad-application.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>110</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>D6B1225E-56B4-4CAF-8C00-7F4849B97DF6</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>D6B1225E-56B4-4CAF-8C00-7F4849B97DF6</string>
+			<key>IDESourceControlWCCName</key>
+			<string>OVDexFlight</string>
+		</dict>
+	</array>
+</dict>
+</plist>
